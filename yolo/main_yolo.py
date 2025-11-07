@@ -3,21 +3,23 @@ import re
 import io
 import base64
 import tempfile
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException
 from pydantic import BaseModel
 from ultralytics import YOLO
 from collections import defaultdict
 from PIL import Image
 
-app = FastAPI(title="YOLO11 Ingredient Detection API")
+router = APIRouter()
 
-MODEL_PATH = "/app/weights/best.pt"
+_BASE_DIR = os.path.dirname(__file__)
+_DEFAULT_MODEL_PATH = os.path.join(_BASE_DIR, "weight", "best.pt")
+MODEL_PATH = os.getenv("YOLO_MODEL_PATH", _DEFAULT_MODEL_PATH)
 model = YOLO(MODEL_PATH)
 
 class ImageData(BaseModel):
     base64_image: str
 
-@app.post("/detect-base64/")
+@router.post("/detect-base64/")
 def detect_base64_image(data: ImageData):
     base64_str = data.base64_image
 
@@ -64,6 +66,10 @@ def detect_base64_image(data: ImageData):
 
     return {"ingredients": ingredients}
 
-@app.get("/")
+@router.get("/")
 def root():
     return {"message": "YOLO11 Ingredient Detection API is running!"}
+
+
+app = FastAPI(title="YOLO11 Ingredient Detection API")
+app.include_router(router)

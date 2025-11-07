@@ -1,11 +1,11 @@
 import os
 import base64
 import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
 
-app = FastAPI(title="OCR Receipt Ingredient API")
+router = APIRouter()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
 if not OPENAI_API_KEY:
@@ -35,7 +35,7 @@ prompt = '''
 class ImageData(BaseModel):
     base64_image: str
 
-@app.post("/ocr-receipt/")
+@router.post("/ocr-receipt/")
 def analyze_receipt(data: ImageData):
     base64_str = data.base64_image
     if not base64_str:
@@ -60,6 +60,10 @@ def analyze_receipt(data: ImageData):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR 분석 실패: {e}")
 
-@app.get("/")
+@router.get("/")
 def root():
     return {"message": "OCR Receipt Ingredient API is running!"}
+
+
+app = FastAPI(title="OCR Receipt Ingredient API")
+app.include_router(router)
