@@ -7,7 +7,7 @@ from openai import OpenAI
 
 router = APIRouter()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY 환경변수가 필요합니다.")
 
