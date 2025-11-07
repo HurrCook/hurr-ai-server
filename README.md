@@ -1,4 +1,4 @@
-# Conference Ingredient Services
+# AI Camera & Recipe LLM
 
 FastAPI 기반의 통합 서버로, 다음 세 가지 기능을 한 번에 제공합니다.
 
@@ -27,6 +27,9 @@ Conference/
 │  ├─ recipes.csv              # 원본 레시피 데이터셋
 │  └─ recipes.py               # LLM 레시피 추천 라우터 로직
 ```
+
+## 체크포인트 & 데이터 다운로드
+- 링크 : https://drive.google.com/drive/folders/1pitMIVsfyYcCplb1g-sRuds2XrjzpbCC?usp=sharing
 
 ## 실행 방법
 
