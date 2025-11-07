@@ -91,15 +91,3 @@ curl -X POST http://localhost:8000/llm/recommend \
   -H "Content-Type: application/json" \
   -d '{"user_query":"국물요리 추천해줘"}'
 ```
-
-## 주의사항
-
-- OpenAI API 키는 항상 유효한 값으로 설정해야 합니다. 키가 올바르지 않으면 OCR 및 레시피 추천이 실패합니다.
-- YOLO 가중치 (`best.pt`)는 저장소 용량 제한으로 인해 별도 관리가 필요할 수 있습니다. 다른 경로에 둘 경우 `YOLO_MODEL_PATH` 환경변수로 지정하세요.
-- 대용량 레시피 데이터(`recipes.csv`, `recipe_index.faiss`, `recipe_embeddings.npy`)는 Git LFS 또는 외부 스토리지를 활용하는 것을 권장합니다.
-
-## 저장소 정리 여부
-
-- 테스트용 임시 파일(페이로드, 결과 JSON 등)은 모두 정리했습니다.
-- 현재 저장소는 위의 폴더 구조로 관리됩니다.
-
