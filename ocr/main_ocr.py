@@ -13,7 +13,7 @@ if not OPENAI_API_KEY:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-prompt = '''
+prompt = """
 당신은 영수증을 분석하는 AI입니다.  
 사용자가 제공한 영수증 텍스트에서 **식자재, 음료, 즉석식품, 가공식품**만 추출하세요.  
 
@@ -30,10 +30,12 @@ prompt = '''
 2. 동일한 종류가 여러 번 나오면 수량을 합산합니다.  
 3. 가능한 한 사람이 인식하기 쉬운 식품명으로 정리합니다.  
 4. 비식품 항목(종량제 봉투, 세금, 할인, 포인트 등)은 제외합니다.
-'''
+"""
+
 
 class ImageData(BaseModel):
     base64_image: str
+
 
 @router.post("/ocr-receipt/")
 def analyze_receipt(data: ImageData):
@@ -43,7 +45,10 @@ def analyze_receipt(data: ImageData):
 
     contents = [
         {"type": "text", "text": prompt},
-        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_str}"}}
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{base64_str}"},
+        },
     ]
 
     try:
@@ -51,7 +56,7 @@ def analyze_receipt(data: ImageData):
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": contents}],
             temperature=0.0,
-            max_tokens=800
+            max_tokens=800,
         )
 
         result_text = response.choices[0].message.content.strip()
@@ -59,11 +64,3 @@ def analyze_receipt(data: ImageData):
         return json.loads(result_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR 분석 실패: {e}")
-
-@router.get("/")
-def root():
-    return {"message": "OCR Receipt Ingredient API is running!"}
-
-
-app = FastAPI(title="OCR Receipt Ingredient API")
-app.include_router(router)

@@ -16,8 +16,10 @@ _DEFAULT_MODEL_PATH = os.path.join(_BASE_DIR, "weight", "best.pt")
 MODEL_PATH = os.getenv("YOLO_MODEL_PATH", _DEFAULT_MODEL_PATH)
 model = YOLO(MODEL_PATH)
 
+
 class ImageData(BaseModel):
     base64_image: str
+
 
 @router.post("/detect-base64/")
 def detect_base64_image(data: ImageData):
@@ -29,7 +31,9 @@ def detect_base64_image(data: ImageData):
     try:
         image_data = base64.b64decode(base64_str)
     except Exception:
-        raise HTTPException(status_code=400, detail="유효하지 않은 base64 문자열입니다.")
+        raise HTTPException(
+            status_code=400, detail="유효하지 않은 base64 문자열입니다."
+        )
 
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
         temp_file.write(image_data)
@@ -58,18 +62,8 @@ def detect_base64_image(data: ImageData):
 
     ingredients = []
     for name, count in total_detected.items():
-        ingredients.append({
-            "name": name,
-            "amount": count,
-            "crop_image": cropped_images_by_class[name]
-        })
+        ingredients.append(
+            {"name": name, "amount": count, "crop_image": cropped_images_by_class[name]}
+        )
 
     return {"ingredients": ingredients}
-
-@router.get("/")
-def root():
-    return {"message": "YOLO11 Ingredient Detection API is running!"}
-
-
-app = FastAPI(title="YOLO11 Ingredient Detection API")
-app.include_router(router)
