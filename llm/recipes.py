@@ -11,6 +11,7 @@ from functools import lru_cache
 import pandas as pd
 import numpy as np
 import faiss
+from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
@@ -68,20 +69,23 @@ router = APIRouter()
 # -----------------------------
 # 요청 바디 모델
 # -----------------------------
+class IngredientItem(BaseModel):
+    ingredient: str
+    quantity: float
+    unit: str
+    expiration_date: str
+
+
 class RecipeRequest(BaseModel):
     user_query: str = None  # 예: "국물요리 추천해줘"
+    ingredients: List[IngredientItem]
 
 
 # -----------------------------
 # 냉장고 JSON 로드
 # -----------------------------
-def load_fridge(json_path):
-    if not os.path.exists(json_path):
-        raise FileNotFoundError(f"❌ {json_path} 파일이 존재하지 않습니다.")
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    df = pd.DataFrame(data)
+def load_fridge(ingredients_data: List[dict]):
+    df = pd.DataFrame(ingredients_data)
     df["expiration_date"] = pd.to_datetime(df["expiration_date"], errors="coerce")
     today = pd.Timestamp("today").normalize()
     df["days_left"] = (df["expiration_date"] - today).dt.days
@@ -100,8 +104,8 @@ def get_all_ingredients(fridge_df):
 # -----------------------------
 # FAISS 검색 (재료 기반)
 # -----------------------------
-def search_recipes(fridge_json, top_k=10):
-    fridge_df = load_fridge(fridge_json)
+def search_recipes(ingredients_data: List[dict], top_k=10):
+    fridge_df = load_fridge(ingredients_data)
     selected_ings = get_all_ingredients(fridge_df)
     if len(selected_ings) == 0:
         print("❌ 냉장고 재료가 없습니다.")
@@ -123,17 +127,23 @@ def search_recipes(fridge_json, top_k=10):
             continue
         row = recipes_df.iloc[idx]
         recipe_ings = [ing.strip() for ing in row["재료"].split(",")]
-        weight_score = sum(weight_map.get(ing, 0) for ing in recipe_ings) / (len(recipe_ings) or 1)
-        results.append({
-            "title": row["요리 제목"],
-            "ingredients": row["재료"],
-            "instructions": row.get("요리 순서", ""),
-            "url": row.get("상세주소", ""),
-            "distance": float(D[0][list(I[0]).index(idx)]),
-            "weight_score": weight_score
-        })
+        weight_score = sum(weight_map.get(ing, 0) for ing in recipe_ings) / (
+            len(recipe_ings) or 1
+        )
+        results.append(
+            {
+                "title": row["요리 제목"],
+                "ingredients": row["재료"],
+                "instructions": row.get("요리 순서", ""),
+                "url": row.get("상세주소", ""),
+                "distance": float(D[0][list(I[0]).index(idx)]),
+                "weight_score": weight_score,
+            }
+        )
 
-    results = sorted(results, key=lambda x: (-x["weight_score"], x["distance"]))[:top_k * 2]
+    results = sorted(results, key=lambda x: (-x["weight_score"], x["distance"]))[
+        : top_k * 2
+    ]
     return selected_ings, pd.DataFrame(results)
 
 
@@ -168,7 +178,10 @@ def generate_final_recipe(selected_ingredients, df_recipes, user_query=None):
         return None
 
     recipes_text = "\n".join(
-        [f"- {r['title']} (재료: {r['ingredients']})" for r in df_recipes.to_dict(orient="records")]
+        [
+            f"- {r['title']} (재료: {r['ingredients']})"
+            for r in df_recipes.to_dict(orient="records")
+        ]
     )
 
     user_query_text = user_query if user_query else "특별한 조건 없음"
@@ -220,7 +233,7 @@ JSON 형식 예시:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.5
+        temperature=0.5,
     )
 
     recipe_text = response.choices[0].message.content.strip()
@@ -241,17 +254,23 @@ JSON 형식 예시:
 def recommend_recipe(request: RecipeRequest):
     try:
         user_query = request.user_query or ""
-        selected_ings, df_recipes = search_recipes(FRIDGE_JSON_PATH, top_k=TOP_K)
+        selected_ings, df_recipes = search_recipes(request.ingredients, top_k=TOP_K)
         df_recipes = rerank_recipes(df_recipes, user_query)
-        final_recipe = generate_final_recipe(selected_ings, df_recipes, user_query=user_query)
+        final_recipe = generate_final_recipe(
+            selected_ings, df_recipes, user_query=user_query
+        )
 
         if not final_recipe:
-            raise HTTPException(status_code=404, detail="추천 가능한 레시피가 없습니다.")
+            raise HTTPException(
+                status_code=404, detail="추천 가능한 레시피가 없습니다."
+            )
 
         return {
             "selected_ingredients": selected_ings,
-            "candidates": df_recipes[["title", "ingredients", "final_score"]].to_dict(orient="records"),
-            "final_recipe": final_recipe
+            "candidates": df_recipes[["title", "ingredients", "final_score"]].to_dict(
+                orient="records"
+            ),
+            "final_recipe": final_recipe,
         }
 
     except Exception as e:
