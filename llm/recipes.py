@@ -516,7 +516,7 @@ def generate_final_recipe(
 def recommend_recipe(request: RecipeRequest):
     try:
         user_query = request.user_query or ""
-        fridge_source = request.fridge if request.fridge is not None else FRIDGE_JSON_PATH
+        fridge_source = request.ingredients if request.ingredients is not None else FRIDGE_JSON_PATH
         tools_source = request.tools if request.tools is not None else TOOLS_JSON_PATH
 
         selected_ings, df_recipes = search_recipes(fridge_source, top_k=TOP_K)
@@ -550,4 +550,5 @@ def recommend_recipe(request: RecipeRequest):
         raise HTTPException(status_code=400, detail=str(value_error))
     except Exception as unknown_error:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {unknown_error}") from unknown_error
+
 
