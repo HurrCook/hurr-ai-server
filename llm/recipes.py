@@ -542,5 +542,11 @@ def recommend_recipe(request: RecipeRequest):
 
         return final_recipe
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException as http_exc:
+        raise http_exc
+    except FileNotFoundError as fnf_error:
+        raise HTTPException(status_code=404, detail=str(fnf_error))
+    except ValueError as value_error:
+        raise HTTPException(status_code=400, detail=str(value_error))
+    except Exception as unknown_error:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {unknown_error}") from unknown_error
