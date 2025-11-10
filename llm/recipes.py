@@ -3,12 +3,11 @@
 import os
 import json
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional, Union
 
 import pandas as pd
 import numpy as np
 import faiss
-from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
@@ -58,28 +57,54 @@ router = APIRouter()
 
 
 class RecipeRequest(BaseModel):
-    user_query: str = None
+    user_query: Optional[str] = None
     personal_preferences: Optional[str] = None
+    fridge: Optional[Union[List[dict], dict]] = None
+    tools: Optional[Union[List[str], dict]] = None
 
 
-def load_fridge(json_path):
-    if not os.path.exists(json_path):
-        raise FileNotFoundError(f"❌ {json_path} 파일이 없습니다.")
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+def load_fridge(source=None):
+    if source is None:
+        source = FRIDGE_JSON_PATH
+
+    data = None
+    if isinstance(source, (str, os.PathLike)):
+        resolved_path = os.fspath(source)
+        if not os.path.isabs(resolved_path):
+            resolved_path = os.path.join(_BASE_DIR, resolved_path)
+        if not os.path.exists(resolved_path):
+            raise FileNotFoundError(f"❌ {resolved_path} 파일이 없습니다.")
+        with open(resolved_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = source
+
+    if data is None:
+        data = []
 
     if isinstance(data, dict):
         ingredients = data.get("ingredients", [])
     elif isinstance(data, list):
         ingredients = data
     else:
-        raise ValueError("❌ ingredient.json 형식이 올바르지 않습니다. dict 또는 list여야 합니다.")
+        raise ValueError("❌ ingredient 데이터 형식이 올바르지 않습니다. dict 또는 list여야 합니다.")
 
     if not isinstance(ingredients, list):
-        raise ValueError("❌ ingredient.json의 ingredients 형식이 리스트가 아닙니다.")
+        raise ValueError("❌ ingredient 데이터의 ingredients 형식이 리스트가 아닙니다.")
 
-    df = pd.DataFrame(ingredients)
-    df["expiration_date"] = pd.to_datetime(df["expiration_date"], errors="coerce")
+    if not ingredients:
+        df = pd.DataFrame(columns=["ingredient", "quantity", "unit", "expiration_date"])
+    else:
+        df = pd.DataFrame(ingredients)
+
+    if "ingredient" not in df.columns:
+        raise ValueError("❌ ingredient 데이터에 'ingredient' 필드가 필요합니다.")
+
+    if "expiration_date" in df.columns:
+        df["expiration_date"] = pd.to_datetime(df["expiration_date"], errors="coerce")
+    else:
+        df["expiration_date"] = pd.NaT
+
     today = pd.Timestamp("today").normalize()
     df["days_left"] = (df["expiration_date"] - today).dt.days
     df["weight"] = 1 / (df["days_left"] + 1)
@@ -87,24 +112,47 @@ def load_fridge(json_path):
     return df
 
 
-def load_tools(tools_json_path=TOOLS_JSON_PATH) -> List[str]:
-    if not tools_json_path:
+def load_tools(source=None) -> List[str]:
+    if source is None:
+        source = TOOLS_JSON_PATH
+
+    data = None
+    if isinstance(source, (str, os.PathLike)):
+        resolved_path = os.fspath(source)
+        if not os.path.isabs(resolved_path):
+            resolved_path = os.path.join(_BASE_DIR, resolved_path)
+        if not os.path.exists(resolved_path):
+            print(f"⚠️ {resolved_path} 파일을 찾을 수 없어 도구 정보를 불러오지 못했습니다.")
+            return []
+        with open(resolved_path, "r", encoding="utf-8") as tools_file:
+            data = json.load(tools_file)
+    else:
+        data = source
+
+    if data is None:
         return []
 
-    if not os.path.exists(tools_json_path):
-        print(f"⚠️ {tools_json_path} 파일을 찾을 수 없어 도구 정보를 불러오지 못했습니다.")
-        return []
+    if isinstance(data, dict):
+        data = data.get("tools", [])
 
-    with open(tools_json_path, "r", encoding="utf-8") as tools_file:
-        raw = json.load(tools_file)
+    if not isinstance(data, list):
+        raise ValueError("❌ tools 데이터 형식이 리스트 또는 딕셔너리가 아닙니다.")
 
-    if isinstance(raw, dict):
-        raw = raw.get("tools", [])
+    cleaned_tools: List[str] = []
+    for tool in data:
+        if isinstance(tool, dict):
+            value = tool.get("name") or tool.get("tool")
+        else:
+            value = tool
 
-    if not isinstance(raw, list):
-        raise ValueError("❌ tools.json 형식이 리스트 또는 딕셔너리가 아닙니다.")
+        if value is None:
+            continue
 
-    return [tool.strip() for tool in map(str, raw) if tool and tool.strip()]
+        text = str(value).strip()
+        if text:
+            cleaned_tools.append(text)
+
+    return cleaned_tools
 
 
 def get_all_ingredients(fridge_df):
@@ -118,8 +166,8 @@ def get_all_ingredients(fridge_df):
     return unique
 
 
-def search_recipes(json_table, top_k=10):
-    fridge_df = load_fridge(json_table)
+def search_recipes(fridge_source=None, top_k=10):
+    fridge_df = load_fridge(fridge_source)
     selected_ings = get_all_ingredients(fridge_df)
     if len(selected_ings) == 0:
         print("❌ 냉장고 재료가 없습니다.")
@@ -262,7 +310,14 @@ JSON 형식 예시:
     return _select_columns(df_recipes.iloc[0:0])
 
 
-def generate_final_recipe(selected_ingredients, available_tools=None, df_recipes=None, user_query=None, personal_preferences=None):
+def generate_final_recipe(
+    selected_ingredients,
+    available_tools=None,
+    df_recipes=None,
+    user_query=None,
+    personal_preferences=None,
+    fridge_source=None,
+):
     if available_tools is None:
         available_tools = load_tools()
     if df_recipes is None:
@@ -272,7 +327,7 @@ def generate_final_recipe(selected_ingredients, available_tools=None, df_recipes
         return None
 
     try:
-        fridge_df = load_fridge(FRIDGE_JSON_PATH)
+        fridge_df = load_fridge(fridge_source)
     except Exception:
         fridge_df = pd.DataFrame()
 
@@ -461,8 +516,11 @@ def generate_final_recipe(selected_ingredients, available_tools=None, df_recipes
 def recommend_recipe(request: RecipeRequest):
     try:
         user_query = request.user_query or ""
-        selected_ings, df_recipes = search_recipes(FRIDGE_JSON_PATH, top_k=TOP_K)
-        available_tools = load_tools()
+        fridge_source = request.fridge if request.fridge is not None else FRIDGE_JSON_PATH
+        tools_source = request.tools if request.tools is not None else TOOLS_JSON_PATH
+
+        selected_ings, df_recipes = search_recipes(fridge_source, top_k=TOP_K)
+        available_tools = load_tools(tools_source)
         df_recipes = rerank_recipes(
             df_recipes,
             user_query,
@@ -474,6 +532,7 @@ def recommend_recipe(request: RecipeRequest):
             df_recipes,
             user_query=user_query,
             personal_preferences=request.personal_preferences,
+            fridge_source=fridge_source,
         )
 
         if not final_recipe:
