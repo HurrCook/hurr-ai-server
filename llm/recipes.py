@@ -59,7 +59,7 @@ router = APIRouter()
 class RecipeRequest(BaseModel):
     user_query: Optional[str] = None
     personal_preferences: Optional[str] = None
-    fridge: Optional[Union[List[dict], dict]] = None
+    ingredients: Optional[Union[List[dict], dict]] = None
     tools: Optional[Union[List[str], dict]] = None
 
 
@@ -550,3 +550,4 @@ def recommend_recipe(request: RecipeRequest):
         raise HTTPException(status_code=400, detail=str(value_error))
     except Exception as unknown_error:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {unknown_error}") from unknown_error
+
