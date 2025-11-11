@@ -110,9 +110,15 @@ uvicorn llm.llm:app --host 0.0.0.0 --port 8003
 ```bash
 curl -X POST http://localhost:8000/ocr/ocr-receipt/ \
   -H "Content-Type: application/json" \
-  -d '{"base64_image":"<base64 문자열>"}'
+  -d '{
+        "base64_images": [
+          "<base64 문자열 1>",
+          "<base64 문자열 2>"
+        ]
+      }'
 ```
-응답 예시
+
+응답 예시 
 ```json
 {
   "ingredients": [
@@ -128,8 +134,14 @@ curl -X POST http://localhost:8000/ocr/ocr-receipt/ \
 ```bash
 curl -X POST http://localhost:8000/yolo/detect-base64/ \
   -H "Content-Type: application/json" \
-  -d '{"base64_image":"<base64 문자열>"}'
+  -d '{
+        "base64_images": [
+          "<base64 문자열 1>",
+          "<base64 문자열 2>"
+        ]
+      }'
 ```
+
 응답 예시
 ```json
 {
@@ -148,8 +160,18 @@ curl -X POST http://localhost:8000/yolo/detect-base64/ \
 ```bash
 curl -X POST http://localhost:8000/llm/recommend \
   -H "Content-Type: application/json" \
-  -d '{"user_query":"국물요리 추천해줘","personal_preferences":"저염, 채소 위주"}'
+  -d '{
+        "user_query": "국물요리 추천해줘",
+        "personal_preferences": "저염, 채소 위주",
+        "fridge": {
+          "ingredients": [
+            {"ingredient": "양파", "quantity": 1, "unit": "ea", "expiration_date": "2025-12-31"}
+          ]
+        },
+        "tools": ["칼", "도마", "냄비"]
+      }'
 ```
+
 응답 예시
 ```json
 {
@@ -178,9 +200,9 @@ curl -X POST http://localhost:8000/llm/recommend \
 
 | 엔드포인트 | 주요 입력 | 주요 출력 |
 | --- | --- | --- |
-| `POST /ocr/ocr-receipt/` | `base64_image` (영수증 이미지) | 추출된 식자재 목록 (`ingredients`: 이름, 수량) |
-| `POST /yolo/detect-base64/` | `base64_image` (카메라 이미지) | 감지된 식재료 목록 및 썸네일 (`crop_image`) |
-| `POST /llm/recommend` | `user_query`, `personal_preferences` (옵션) | 최종 레시피 정보 (재료, 도구, 순서, 시간, 칼로리) |
+| `POST /ocr/ocr-receipt/` | `base64_images` (영수증 이미지 배열) | 이미지별 식자재를 취합한 목록 (`ingredients`: 이름, 수량) |
+| `POST /yolo/detect-base64/` | `base64_images` (카메라 이미지 배열) | 감지된 식재료 합산 및 클래스별 첫 크롭 (`crop_image`) |
+| `POST /llm/recommend` | `user_query`, `personal_preferences`, `fridge`, `tools` (옵션) | 최종 레시피 정보 (재료, 도구, 순서, 시간, 칼로리) |
 
 ---
 
