@@ -495,7 +495,7 @@ def generate_final_recipe(
 
     print("🤖 GPT가 최종 레시피 생성 중...")
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.5
     )
@@ -550,5 +550,4 @@ def recommend_recipe(request: RecipeRequest):
         raise HTTPException(status_code=400, detail=str(value_error))
     except Exception as unknown_error:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {unknown_error}") from unknown_error
-
 
