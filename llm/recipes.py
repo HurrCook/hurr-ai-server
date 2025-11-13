@@ -511,7 +511,7 @@ def generate_final_recipe(
 def recommend_recipe(request: RecipeRequest):
     
     try:
-        user_query = request.user_query or "test"
+        user_query = request.user_query or ""
 
         fridge_source = request.ingredients if request.ingredients is not None else FRIDGE_JSON_PATH
         tools_source = request.tools if request.tools is not None else TOOLS_JSON_PATH
