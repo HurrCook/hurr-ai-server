@@ -318,6 +318,7 @@ def generate_final_recipe(
     personal_preferences=None,
     fridge_source=None,
 ):
+    print(user_query)
     if available_tools is None:
         available_tools = load_tools()
     if df_recipes is None:
@@ -518,6 +519,8 @@ def recommend_recipe(request: RecipeRequest):
         user_query = request.user_query or ""
         fridge_source = request.ingredients if request.ingredients is not None else FRIDGE_JSON_PATH
         tools_source = request.tools if request.tools is not None else TOOLS_JSON_PATH
+
+        print(user_query)
 
         selected_ings, df_recipes = search_recipes(fridge_source, top_k=TOP_K)
         available_tools = load_tools(tools_source)
