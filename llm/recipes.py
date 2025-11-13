@@ -29,7 +29,6 @@ if not OPENAI_API_KEY:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-print("📦 모델 및 데이터 로드 중...")
 
 @lru_cache(maxsize=1)
 def get_sentence_model():
@@ -49,8 +48,6 @@ def get_recipes_df():
         raise FileNotFoundError(f"❌ {RECIPES_CSV_PATH} 파일이 존재하지 않습니다.")
     return pd.read_csv(RECIPES_CSV_PATH)
 
-
-print("✅ 데이터 로드 함수 준비 완료.")
 
 
 router = APIRouter()
@@ -122,7 +119,6 @@ def load_tools(source=None) -> List[str]:
         if not os.path.isabs(resolved_path):
             resolved_path = os.path.join(_BASE_DIR, resolved_path)
         if not os.path.exists(resolved_path):
-            print(f"⚠️ {resolved_path} 파일을 찾을 수 없어 도구 정보를 불러오지 못했습니다.")
             return []
         with open(resolved_path, "r", encoding="utf-8") as tools_file:
             data = json.load(tools_file)
@@ -170,7 +166,6 @@ def search_recipes(fridge_source=None, top_k=10):
     fridge_df = load_fridge(fridge_source)
     selected_ings = get_all_ingredients(fridge_df)
     if len(selected_ings) == 0:
-        print("❌ 냉장고 재료가 없습니다.")
         return [], pd.DataFrame()
 
     weight_map = fridge_df.set_index("ingredient")["weight"].to_dict()
@@ -318,7 +313,6 @@ def generate_final_recipe(
     personal_preferences=None,
     fridge_source=None,
 ):
-    print(user_query)
     if available_tools is None:
         available_tools = load_tools()
     if df_recipes is None:
@@ -515,20 +509,14 @@ def generate_final_recipe(
 
 @router.post("/recommend")
 def recommend_recipe(request: RecipeRequest):
-    print("=" * 50, flush=True)
-    print("🎯 /recommend 엔드포인트 호출됨!", flush=True)
-    print(f"📦 request 객체: {request}", flush=True)
-    print("=" * 50, flush=True)
+    
     try:
         user_query = request.user_query or "test"
-        print(f"🔍 user_query: '{user_query}'", flush=True)
-        print(f"🔍 user_query type: {type(request.user_query)}", flush=True)
+
         fridge_source = request.ingredients if request.ingredients is not None else FRIDGE_JSON_PATH
         tools_source = request.tools if request.tools is not None else TOOLS_JSON_PATH
-        print(f"📂 fridge_source: {fridge_source}", flush=True)
-        print(f"🔧 tools_source: {tools_source}", flush=True)
 
-        print(user_query)
+
 
         selected_ings, df_recipes = search_recipes(fridge_source, top_k=TOP_K)
         available_tools = load_tools(tools_source)
