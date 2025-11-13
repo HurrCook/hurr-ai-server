@@ -515,10 +515,18 @@ def generate_final_recipe(
 
 @router.post("/recommend")
 def recommend_recipe(request: RecipeRequest):
+    print("=" * 50, flush=True)
+    print("🎯 /recommend 엔드포인트 호출됨!", flush=True)
+    print(f"📦 request 객체: {request}", flush=True)
+    print("=" * 50, flush=True)
     try:
-        user_query = request.user_query or ""
+        user_query = request.user_query or "test"
+        print(f"🔍 user_query: '{user_query}'", flush=True)
+        print(f"🔍 user_query type: {type(request.user_query)}", flush=True)
         fridge_source = request.ingredients if request.ingredients is not None else FRIDGE_JSON_PATH
         tools_source = request.tools if request.tools is not None else TOOLS_JSON_PATH
+        print(f"📂 fridge_source: {fridge_source}", flush=True)
+        print(f"🔧 tools_source: {tools_source}", flush=True)
 
         print(user_query)
 
